@@ -2,7 +2,7 @@
 
 `teamai materialize` 是面向编排器的确定性、离线 Skill 复制契约。它不会初始化 TeamAI、发现本地配置、刷新 Git 仓库、安装 Hook、修改 MCP 设置、读取凭据、访问网络服务，也不会直接写入任何 AI 工具目录。
 
-更小的 `teamai-materialize` 可执行入口是规范的机器接口；主命令 `teamai materialize` 只是同一引擎的便捷包装，并保留 TeamAI 通用的帮助与参数解析行为。需要下述 JSON 诊断和退出码契约的编排器必须调用 `teamai-materialize`。
+更小的 `teamai-materialize` 可执行入口是规范的机器接口。发布的 `dist/materialize-bin.js` 是单个 ESM bundle：参数解析器、schema 校验器、TeamAI 许可证与内嵌依赖声明都已包含在文件内，运行时只导入 Node.js 内置模块，因此不需要 `node_modules`。主命令 `teamai materialize` 只是同一引擎的便捷包装，并保留 TeamAI 通用的帮助与参数解析行为。需要下述 JSON 诊断和退出码契约的编排器必须调用 `teamai-materialize`。
 
 ## 调用方式
 
@@ -107,7 +107,7 @@ output 原像：{"schema":"teamai.materialize.output/v1","skills":[]}
 outputSha256：aa4288df4afde3f5c7d0826d6d66590db4d49ce35f0804ca5aa7e4795b577e6c
 ```
 
-调用方在发布前仍必须独立重扫 output，逐项验证路径、字节哈希、大小和模式。TeamAI fork 的精确 commit 与打包制品 SHA-256 应在协议之外固定。
+调用方在发布前仍必须独立重扫 output，逐项验证路径、字节哈希、大小和模式。TeamAI fork 的精确 commit 与 `dist/materialize-bin.js` 原始字节的 SHA-256 应在协议之外固定。如果把制品复制到 npm package 之外，调用方必须保留 ESM 分类（例如将字节完全相同的副本命名为 `.mjs`）。
 
 ## 失败行为
 

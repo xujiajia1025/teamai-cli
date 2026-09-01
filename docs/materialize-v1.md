@@ -2,7 +2,7 @@
 
 `teamai materialize` is a deterministic, offline Skill-copying contract for orchestrators. It does not initialize TeamAI, discover local configuration, refresh Git repositories, install hooks, update MCP settings, read credentials, contact a network service, or write into an AI tool directory.
 
-The smaller `teamai-materialize` executable is the normative machine interface. The main `teamai materialize` command is a convenience wrapper over the same engine, but it retains TeamAI's general help and argument-parser behavior. Orchestrators that require the JSON diagnostic and exit-code contract below must invoke `teamai-materialize`.
+The smaller `teamai-materialize` executable is the normative machine interface. Its published `dist/materialize-bin.js` is a single ESM bundle: its parser, schema validator, TeamAI license, and bundled-dependency notices are embedded, and its only runtime imports are Node.js built-ins, so it does not require `node_modules`. The main `teamai materialize` command is a convenience wrapper over the same engine, but it retains TeamAI's general help and argument-parser behavior. Orchestrators that require the JSON diagnostic and exit-code contract below must invoke `teamai-materialize`.
 
 ## Invocation
 
@@ -107,7 +107,7 @@ output preimage: {"schema":"teamai.materialize.output/v1","skills":[]}
 outputSha256: aa4288df4afde3f5c7d0826d6d66590db4d49ce35f0804ca5aa7e4795b577e6c
 ```
 
-The calling orchestrator must still rescan output and independently verify every path, byte hash, size, and mode before publication. It should pin the exact TeamAI fork commit and packaged artifact SHA-256 outside this protocol.
+The calling orchestrator must still rescan output and independently verify every path, byte hash, size, and mode before publication. It should pin the exact TeamAI fork commit and the SHA-256 of the exact `dist/materialize-bin.js` bytes outside this protocol. If the artifact is copied outside the npm package, the caller must preserve ESM classification (for example, by naming the byte-identical copy with an `.mjs` suffix).
 
 ## Failure behavior
 

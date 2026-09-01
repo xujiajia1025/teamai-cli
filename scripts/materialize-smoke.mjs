@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { promises as fs } from 'node:fs';
+import { builtinModules } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -89,6 +90,23 @@ function invokeInvalid(entry, args, home) {
   });
 }
 
+function invokeInformational(entry, args, home, expectedStdout) {
+  const result = spawnSync(process.execPath, [entry, ...args], {
+    cwd: sandbox,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+      PATH: path.join(sandbox, 'no-external-tools'),
+    },
+    input: '',
+  });
+  assert.equal(result.status, 0, `informational command failed: ${result.stderr}`);
+  assert.equal(result.stdout, expectedStdout);
+  assert.equal(result.stderr, '');
+}
+
 async function assertOutput(outputRoot, resultPath, fixture) {
   assert.deepEqual(await fs.readFile(path.join(outputRoot, 'example', 'SKILL.md')), fixture.skill);
   assert.deepEqual(await fs.readFile(path.join(outputRoot, 'example', 'bin', 'run.sh')), fixture.script);
@@ -105,14 +123,57 @@ async function assertOutput(outputRoot, resultPath, fixture) {
 
 try {
   const standalonePath = path.join(repositoryRoot, 'dist', 'materialize-bin.js');
-  const standaloneBundle = await fs.readFile(standalonePath, 'utf8');
-  const externalImports = [...standaloneBundle.matchAll(/^import .* from ["']([^"']+)["'];$/gm)]
+  const standaloneBytes = await fs.readFile(standalonePath);
+  const standaloneBundle = standaloneBytes.toString('utf8');
+  const metafile = JSON.parse(await fs.readFile(path.join(repositoryRoot, 'dist', 'metafile-esm.json'), 'utf8'));
+  const artifactMetadata = metafile.outputs['dist/materialize-bin.js'];
+  assert.equal(artifactMetadata.entryPoint, 'src/materialize-bin.ts');
+  // tsup appends the source-map reference after esbuild records output bytes.
+  assert.equal(artifactMetadata.bytes <= standaloneBytes.byteLength, true);
+  assert.equal(standaloneBytes.byteLength - artifactMetadata.bytes < 256, true);
+  const unexpectedInputs = Object.keys(metafile.inputs).filter((input) => (
+    !/^src\/materialize(?:-bin|-cmd|\/).*\.ts$/.test(input)
+    && !/^node_modules\/zod\//.test(input)
+  ));
+  assert.deepEqual(unexpectedInputs, [], `standalone artifact has unexpected inputs: ${unexpectedInputs.join(', ')}`);
+  const externalImports = [
+    ...standaloneBundle.matchAll(/^import\s+.*?\s+from\s*["']([^"']+)["'];?$/gm),
+    ...standaloneBundle.matchAll(/^import\s*["']([^"']+)["'];?$/gm),
+  ].map((match) => match[1]);
+  const externalRequires = [...standaloneBundle.matchAll(/\b(?:require|__require)\(\s*["']([^"']+)["']\s*\)/g)]
     .map((match) => match[1]);
+  const nodeBuiltins = new Set(builtinModules.map((name) => name.replace(/^node:/, '')));
+  const forbiddenBuiltins = new Set([
+    'child_process', 'cluster', 'dgram', 'dns', 'http', 'http2', 'https', 'net',
+    'tls', 'worker_threads',
+  ]);
+  const metafileImports = artifactMetadata.imports
+    .filter((dependency) => dependency.external)
+    .map((dependency) => dependency.path);
   assert.deepEqual(
-    [...new Set(externalImports)].sort(),
-    ['buffer', 'commander', 'crypto', 'fs', 'module', 'path', 'zod'],
+    [...new Set(
+      [...externalImports, ...externalRequires, ...metafileImports]
+        .filter((name) => !nodeBuiltins.has(name.replace(/^node:/, ''))),
+    )],
+    [],
+    `standalone artifact has non-builtin imports: ${[...externalImports, ...externalRequires, ...metafileImports].join(', ')}`,
   );
-  assert.equal(/(?:process\.env\.(?:HOME|USERPROFILE)|\.teamai|teamai\.yaml|child_process|simple-git|from ["'](?:net|http|https|tls|dns)["'])/.test(standaloneBundle), false);
+  assert.deepEqual(
+    metafileImports.filter((name) => forbiddenBuiltins.has(name.replace(/^node:/, ''))),
+    [],
+    `standalone artifact imports forbidden Node capabilities: ${metafileImports.join(', ')}`,
+  );
+  assert.equal(/(?:from|import\s*)\s*["'](?:commander|zod)["']/.test(standaloneBundle), false);
+  assert.equal(/(?:process\.env\.(?:HOME|USERPROFILE)|\.teamai|teamai\.yaml|child_process|simple-git|\bfetch\s*\(|\bWebSocket\b|\bWorker\b|from ["'](?:net|http|https|tls|dns|dgram|worker_threads)["'])/.test(standaloneBundle), false);
+  assert.equal(standaloneBundle.includes('Copyright (C) 2026 Tencent.'), true);
+  assert.equal(standaloneBundle.includes('Copyright (c) 2025 Colin McDonnell'), true);
+
+  // Run a byte-for-byte copy outside the repository/package and away from node_modules.
+  // The .mjs suffix preserves the artifact's ESM classification without package metadata.
+  const isolatedArtifact = path.join(sandbox, 'artifact', 'teamai-materialize.mjs');
+  await fs.mkdir(path.dirname(isolatedArtifact));
+  await fs.writeFile(isolatedArtifact, standaloneBytes, { mode: 0o755 });
+  await fs.chmod(isolatedArtifact, 0o755);
 
   const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
   const pack = spawnSync(npmCommand, ['pack', '--json', '--dry-run'], {
@@ -128,6 +189,7 @@ try {
     'dist/materialize-bin.js',
     'docs/materialize-v1.md',
     'docs/materialize-v1.zh-CN.md',
+    'THIRD_PARTY_NOTICES.materialize.txt',
   ]) {
     assert.equal(packedFiles.has(required), true, `npm package is missing ${required}`);
   }
@@ -138,6 +200,13 @@ try {
   assert.notEqual(packedFiles.get('dist/materialize-bin.js').mode & 0o111, 0);
   const packageJson = JSON.parse(await fs.readFile(path.join(repositoryRoot, 'package.json'), 'utf8'));
   assert.equal(packageJson.bin['teamai-materialize'], 'dist/materialize-bin.js');
+  const zodPackage = JSON.parse(await fs.readFile(path.join(repositoryRoot, 'node_modules', 'zod', 'package.json'), 'utf8'));
+  const thirdPartyNotices = await fs.readFile(
+    path.join(repositoryRoot, 'THIRD_PARTY_NOTICES.materialize.txt'),
+    'utf8',
+  );
+  assert.equal(thirdPartyNotices.includes(`Zod ${zodPackage.version}`), true);
+  assert.equal(standaloneBundle.includes(thirdPartyNotices.trimEnd()), true);
 
   const fixture = await prepareFixture();
   const home = path.join(sandbox, 'home');
@@ -151,7 +220,7 @@ try {
   const inheritedUmask = process.umask(0o777);
   try {
     invoke(
-      path.join(repositoryRoot, 'dist', 'materialize-bin.js'),
+      isolatedArtifact,
       [...common, '--output-root', standaloneOutput, '--result', standaloneResult],
       home,
     );
@@ -169,9 +238,10 @@ try {
   );
   const second = await assertOutput(wrapperOutput, wrapperResult, fixture);
   assert.deepEqual(second, first);
-  invokeInvalid(path.join(repositoryRoot, 'dist', 'materialize-bin.js'), [], home);
+  invokeInformational(isolatedArtifact, ['--version'], home, `${packageJson.version}\n`);
+  invokeInvalid(isolatedArtifact, [], home);
   assert.deepEqual(await fs.readdir(home), []);
-  console.log('TeamAI materialize built-CLI smoke passed.');
+  console.log(`TeamAI materialize built-CLI smoke passed (sha256: ${sha256(standaloneBytes)}).`);
 } finally {
   await fs.rm(sandbox, { recursive: true, force: true });
 }

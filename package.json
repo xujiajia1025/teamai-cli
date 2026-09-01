@@ -15,14 +15,16 @@
     "docs/materialize-v1.zh-CN.md",
     "README.md",
     "CHANGELOG.md",
+    "THIRD_PARTY_NOTICES.materialize.txt",
     "LICENSE"
   ],
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && tsup --config tsup.materialize.config.ts",
     "dev": "tsup --watch",
+    "dev:materialize": "tsup --config tsup.materialize.config.ts --watch",
     "test": "vitest run",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "test:materialize-cli": "node scripts/materialize-smoke.mjs",
