@@ -68,6 +68,28 @@ program
   });
 
 program
+  .command('materialize')
+  .description('Offline, deterministic Skill materialization into a fresh staging root')
+  .requiredOption('--request <file>', 'Strict teamai.materialize.request/v1 JSON file')
+  .requiredOption('--input-root <dir>', 'Private read-only Skill input root')
+  .requiredOption('--output-root <dir>', 'Fresh output root to create')
+  .requiredOption('--result <file>', 'Fresh machine-readable result file to create')
+  .action(async (cmdOpts: {
+    request: string;
+    inputRoot: string;
+    outputRoot: string;
+    result: string;
+  }) => {
+    if ((program.opts() as GlobalOptions).dryRun) {
+      process.stderr.write('{"error":{"code":"MATERIALIZE_INVALID_REQUEST","message":"--dry-run is not supported for materialize"},"schema":"teamai.materialize.result/v1","status":"failed"}\n');
+      process.exitCode = 2;
+      return;
+    }
+    const { runMaterializeCli } = await import('./materialize-cmd.js');
+    process.exitCode = await runMaterializeCli(cmdOpts);
+  });
+
+program
   .command('status')
   .description('Show local vs team repo diff')
   .action(async () => {

@@ -4,12 +4,15 @@
   "description": "TeamAI — the team harness for AI agents (skill sync + shared knowledge base, powered by Git)",
   "type": "module",
   "bin": {
-    "teamai": "dist/index.js"
+    "teamai": "dist/index.js",
+    "teamai-materialize": "dist/materialize-bin.js"
   },
   "files": [
     "dist/**/*.js",
     "skills",
     "agents",
+    "docs/materialize-v1.md",
+    "docs/materialize-v1.zh-CN.md",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
@@ -22,6 +25,7 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "test:materialize-cli": "node scripts/materialize-smoke.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",

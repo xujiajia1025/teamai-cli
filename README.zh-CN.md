@@ -228,6 +228,7 @@ WASM 解析器是纯 JavaScript 依赖，无需任何原生编译工具链。若
 |------|------|
 | `teamai init` | 初始化：OAuth 登录、关联仓库、注册成员、注入 hooks |
 | `teamai pull` | 拉取团队资源并注入到本地 AI 工具 |
+| `teamai materialize` / `teamai-materialize` | 面向编排器的离线确定性 Skill 物化（[协议 v1](docs/materialize-v1.zh-CN.md)） |
 | `teamai push` | 推送本地资源到分支并创建合并请求 |
 | `teamai status` | 显示本地与团队仓库的差异 |
 | `teamai contribute` | 将 session 经验分享到团队仓库 |

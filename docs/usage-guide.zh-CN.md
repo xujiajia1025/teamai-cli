@@ -302,6 +302,20 @@ teamai pull --dry-run    # 试运行，不实际修改
 
 启用角色化 skills 后，`pull` 的 skills 同步来源会变成 `skills/<namespace>/` 中的内容，按 `primaryRole + additionalRoles` 展开对应的 namespace，拍平安装到本地各 AI 工具 skills 目录。`rules/`、`docs/`、`learnings/` 仍然保持原有全局同步逻辑。
 
+### 面向编排器的离线物化
+
+已经治理并固定准确 Skill 清单的自动化系统，不必调用 `init` 或 `pull`，可以使用独立离线物化契约：
+
+```bash
+teamai-materialize \
+  --request /sandbox/request.json \
+  --input-root /sandbox/input \
+  --output-root /sandbox/output \
+  --result /sandbox/result.json
+```
+
+该路径不读取 TeamAI 配置、Git、HOME 资源、Hooks、MCP、sources、凭据或 analytics，只会把穷举且固定哈希的 Skill 请求复制到全新的私有 staging，并产生确定性结果。它不会选择或写入真实 AI 工具目录。完整 schema、路径规则、资源上限、退出码，以及调用方的沙箱和独立复核责任，见[物化协议 v1](materialize-v1.zh-CN.md)。
+
 ### 排除个人不需要的 Skill
 
 如果团队共享的某个 skill 不适合你，可以只在本地将它排除，无需修改团队仓库，也不会影响其他成员：

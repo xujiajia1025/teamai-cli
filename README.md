@@ -228,6 +228,7 @@ The WASM parser is a pure-JavaScript dependency — no native toolchain is requi
 |---------|-------------|
 | `teamai init` | Initialize: OAuth login, link repo, register member, inject hooks |
 | `teamai pull` | Pull team resources and inject into local AI tools |
+| `teamai materialize` / `teamai-materialize` | Offline deterministic Skill materialization for orchestrators ([protocol v1](docs/materialize-v1.md)) |
 | `teamai push` | Push local resources to a branch and open a Merge Request |
 | `teamai status` | Show local vs team repo diff |
 | `teamai contribute` | Share session experience to team repo |

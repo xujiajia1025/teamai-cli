@@ -304,6 +304,20 @@ teamai pull --dry-run    # Dry run, no actual changes
 
 With role-based skills enabled, `pull`'s skill sync source becomes the contents of `skills/<namespace>/`, expanded according to `primaryRole + additionalRoles` and flattened into each local AI tool's skills directory. `rules/`, `docs/`, and `learnings/` keep their original global sync behavior.
 
+### Offline materialization for orchestrators
+
+Automation that already governs the exact Skill list can use the separate, offline materialization contract instead of `init` or `pull`:
+
+```bash
+teamai-materialize \
+  --request /sandbox/request.json \
+  --input-root /sandbox/input \
+  --output-root /sandbox/output \
+  --result /sandbox/result.json
+```
+
+This path does not read TeamAI configuration, Git, HOME resources, hooks, MCP, sources, credentials, or analytics. It only copies an exhaustive, hash-pinned Skill request into a fresh private staging root and emits a deterministic result. It never chooses or writes a real AI-tool directory. See the [materialization protocol v1](materialize-v1.md) for schemas, path rules, limits, exit codes, and the caller's sandbox and independent-verification obligations.
+
 ### Excluding skills you don't need
 
 If a skill shared by the team doesn't suit you, you can exclude it locally only — no need to modify the team repo, and it won't affect other members:
